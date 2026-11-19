@@ -191,6 +191,24 @@ BCTBX_PUBLIC bctbx_vsocket_api_t *bctbx_vsocket_api_get_default(void);
  */
 BCTBX_PUBLIC bctbx_vsocket_api_t *bctbx_vsocket_api_get_standard(void);
 
+/**
+ * Pins every socket created through bctbx_socket() from now on to a network interface
+ * (Apple platforms: IP_BOUND_IF / IPV6_BOUND_IF). Sockets that already exist keep the interface they were
+ * created with, so a caller that changes the interface must make the stack recreate its sockets.
+ * @param interface_index interface index (if_nametoindex()), or 0 to stop pinning
+ */
+BCTBX_PUBLIC void bctbx_set_bound_interface(unsigned int interface_index);
+
+/** @return the interface index set by bctbx_set_bound_interface(), 0 when sockets are not pinned */
+BCTBX_PUBLIC unsigned int bctbx_get_bound_interface(void);
+
+/**
+ * Applies the bound interface to a socket that was just created.
+ * @return 0 on success or when there is nothing to apply, -1 if the operating system refused (the caller must
+ * not use the socket: it would leave through the wrong network)
+ */
+BCTBX_PUBLIC int bctbx_socket_apply_bound_interface(bctbx_socket_t sock, int socket_family);
+
 #ifdef __cplusplus
 }
 #endif

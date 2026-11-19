@@ -1809,7 +1809,7 @@ static int get_local_ip_for_with_connect(int type, const char *dest, int port, c
 		bctbx_error("bug: getaddrinfo returned nothing.");
 		return -1;
 	}
-	sock = socket(res->ai_family, SOCK_DGRAM, 0);
+	sock = bctbx_socket(res->ai_family, SOCK_DGRAM, 0);
 	if (sock == (bctbx_socket_t)-1) {
 		bctbx_error("get_local_ip_for_with_connect() could not create [%s] socket: %s",
 		            ai_family_to_string(res->ai_family), getSocketError());

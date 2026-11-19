@@ -21,6 +21,7 @@
 /* mtu.c : discover the mtu automatically */
 
 #include <bctoolbox/defs.h>
+#include <bctoolbox/vconnect.h>
 
 #include "mediastreamer2/mscommon.h"
 
@@ -201,7 +202,7 @@ int ms_discover_mtu(const char *host) {
 		ms_error("getaddrinfo(): %s\n", gai_strerror(err));
 		return -1;
 	}
-	sock = socket(family, SOCK_DGRAM, 0);
+	sock = bctbx_socket(family, SOCK_DGRAM, 0);
 	if (sock < 0) {
 		ms_error("socket(): %s", strerror(errno));
 		return sock;

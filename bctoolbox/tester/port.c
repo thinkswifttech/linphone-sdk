@@ -18,10 +18,16 @@
  */
 
 #include "bctoolbox/port.h"
+#include "bctoolbox/vconnect.h"
 #include "bctoolbox/vfs.h"
 #include "bctoolbox_tester.h"
 #include <inttypes.h>
 #include <stdio.h>
+#ifdef __APPLE__
+#include <net/if.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#endif
 
 static void bytes_to_from_hexa_strings(void) {
 	const uint8_t a55aBytes[2] = {0xa5, 0x5a};
@@ -255,9 +261,40 @@ static void bctbx_directory_utils_test(void) {
 	bctbx_free(filename3);
 }
 
+static void bound_interface_test(void) {
+	BC_ASSERT_EQUAL(bctbx_get_bound_interface(), 0, unsigned, "%u");
+	bctbx_set_bound_interface(7);
+	BC_ASSERT_EQUAL(bctbx_get_bound_interface(), 7, unsigned, "%u");
+	bctbx_set_bound_interface(0);
+	BC_ASSERT_EQUAL(bctbx_get_bound_interface(), 0, unsigned, "%u");
+#ifdef __APPLE__
+	{
+		/* The loopback interface always exists: a new socket must come out pinned to it, and unpinned again after reset. */
+		unsigned int lo = if_nametoindex("lo0");
+		unsigned int value = 0;
+		socklen_t len = sizeof(value);
+		bctbx_socket_t sock;
+		BC_ASSERT_TRUE(lo != 0);
+		bctbx_set_bound_interface(lo);
+		sock = bctbx_socket(AF_INET, SOCK_DGRAM, 0);
+		BC_ASSERT_TRUE((int)sock != -1);
+		BC_ASSERT_EQUAL(getsockopt(sock, IPPROTO_IP, IP_BOUND_IF, &value, &len), 0, int, "%i");
+		BC_ASSERT_EQUAL(value, lo, unsigned, "%u");
+		bctbx_socket_close(sock);
+		bctbx_set_bound_interface(0);
+		sock = bctbx_socket(AF_INET, SOCK_DGRAM, 0);
+		value = 99;
+		BC_ASSERT_EQUAL(getsockopt(sock, IPPROTO_IP, IP_BOUND_IF, &value, &len), 0, int, "%i");
+		BC_ASSERT_EQUAL(value, 0, unsigned, "%u");
+		bctbx_socket_close(sock);
+	}
+#endif
+}
+
 static test_t utils_tests[] = {
     TEST_NO_TAG("Bytes to/from Hexa strings", bytes_to_from_hexa_strings), TEST_NO_TAG("Time", time_functions),
-    TEST_NO_TAG("Addrinfo sort", bctbx_addrinfo_sort_test), TEST_NO_TAG("Directory utils", bctbx_directory_utils_test)};
+    TEST_NO_TAG("Addrinfo sort", bctbx_addrinfo_sort_test), TEST_NO_TAG("Directory utils", bctbx_directory_utils_test),
+    TEST_NO_TAG("Bound interface", bound_interface_test)};
 
 test_suite_t utils_test_suite = {"Utils",     NULL, NULL, NULL, NULL, sizeof(utils_tests) / sizeof(utils_tests[0]),
                                  utils_tests, 0};

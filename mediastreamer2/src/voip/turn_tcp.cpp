@@ -30,6 +30,7 @@
 
 #include "bctoolbox/crypto.h"
 #include "bctoolbox/defs.h"
+#include "bctoolbox/vconnect.h"
 
 #include "mediastreamer2/mscommon.h"
 #include "mediastreamer2/stun.h"
@@ -444,7 +445,7 @@ int TurnSocket::connect() {
 		return -1;
 	}
 
-	mSocket = ::socket(ai->ai_family, SOCK_STREAM, 0);
+	mSocket = bctbx_socket(ai->ai_family, SOCK_STREAM, 0);
 	if (mSocket == -1) {
 		ms_error("TurnSocket [%p]: could not create socket", this);
 		bctbx_freeaddrinfo(ai);

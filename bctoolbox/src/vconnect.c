@@ -27,6 +27,10 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <sys/types.h>
+#ifdef __APPLE__
+#include <netinet/in.h> /* IP_BOUND_IF, IPV6_BOUND_IF */
+#include <string.h>
+#endif
 
 /**============================================================
  * Wrappers around default libc calls used to handle windows
@@ -118,8 +122,46 @@ static bctbx_vsocket_api_t bcvSocket = {
 /* Pointer to default socket methods initialized to standard libc implementation here.*/
 static bctbx_vsocket_api_t *pDefaultvSocket = &bcvSocket;
 
+static volatile unsigned int bound_interface = 0;
+
+void bctbx_set_bound_interface(unsigned int interface_index) {
+	bound_interface = interface_index;
+}
+
+unsigned int bctbx_get_bound_interface(void) {
+	return bound_interface;
+}
+
+int bctbx_socket_apply_bound_interface(bctbx_socket_t sock, int socket_family) {
+#ifdef __APPLE__
+	unsigned int index = bound_interface;
+	int err;
+	if (index == 0) return 0;
+	if (socket_family == AF_INET6) {
+		err = setsockopt(sock, IPPROTO_IPV6, IPV6_BOUND_IF, &index, sizeof(index));
+	} else if (socket_family == AF_INET) {
+		err = setsockopt(sock, IPPROTO_IP, IP_BOUND_IF, &index, sizeof(index));
+	} else {
+		return 0; /* AF_UNIX and others never leave the device */
+	}
+	if (err != 0) {
+		bctbx_error("bctbx_socket_apply_bound_interface(): cannot bind to interface [%u]: %s", index, strerror(errno));
+		return -1;
+	}
+#else
+	(void)sock;
+	(void)socket_family;
+#endif
+	return 0;
+}
+
 bctbx_socket_t bctbx_socket(int socket_family, int socket_type, int protocol) {
-	return pDefaultvSocket->pSocketMethods->pFuncSocket(socket_family, socket_type, protocol);
+	bctbx_socket_t sock = pDefaultvSocket->pSocketMethods->pFuncSocket(socket_family, socket_type, protocol);
+	if (sock != (bctbx_socket_t)-1 && bctbx_socket_apply_bound_interface(sock, socket_family) != 0) {
+		pDefaultvSocket->pSocketMethods->pFuncClose(sock);
+		return (bctbx_socket_t)-1;
+	}
+	return sock;
 }
 
 int bctbx_socket_close(bctbx_socket_t sock) {
